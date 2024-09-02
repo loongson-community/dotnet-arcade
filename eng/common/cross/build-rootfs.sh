@@ -5,7 +5,7 @@ set -e
 usage()
 {
     echo "Usage: $0 [BuildArch] [CodeName] [lldbx.y] [llvmx[.y]] [--skipunmount] --rootfsdir <directory>]"
-    echo "BuildArch can be: arm(default), arm64, armel, armv6, ppc64le, riscv64, s390x, x64, x86"
+    echo "BuildArch can be: arm(default), arm64, armel, armv6, loongarch64, ppc64le, riscv64, s390x, x64, x86"
     echo "CodeName - optional, Code name for Linux, can be: xenial(default), zesty, bionic, alpine"
     echo "                               for alpine can be specified with version: alpineX.YY or alpineedge"
     echo "                               for FreeBSD can be: freebsd13, freebsd14"
@@ -32,6 +32,7 @@ __QEMUArch=arm
 __UbuntuArch=armhf
 __UbuntuRepo=
 __UbuntuSuites="updates security backports"
+__DebianSuitesRaw=
 __LLDB_Package="liblldb-3.9-dev"
 __SkipUnmount=0
 
@@ -180,6 +181,17 @@ while :; do
             if [[ -e "$__KeyringFile" ]]; then
                 __Keyring="--keyring $__KeyringFile"
             fi
+            ;;
+        loongarch64)
+            __BuildArch=loongarch64
+            __QEMUArch=loongarch64
+            __UbuntuArch=loong64
+            __UbuntuSuites=
+            __DebianSuitesRaw=unreleased
+            __UbuntuPackages="${__UbuntuPackages// libunwind8-dev/}"
+            __UbuntuPackages="${__UbuntuPackages// libomp-dev/}"
+            __UbuntuPackages="${__UbuntuPackages// libomp5/}"
+            unset __LLDB_Package
             ;;
         riscv64)
             __BuildArch=riscv64
@@ -341,10 +353,28 @@ while :; do
             ;;
         sid) # Debian sid
             __CodeName=sid
-            __KeyringFile="/usr/share/keyrings/debian-archive-keyring.gpg"
 
-            if [[ -z "$__UbuntuRepo" ]]; then
-                __UbuntuRepo="http://ftp.debian.org/debian/"
+            # Debian-Ports architectures need different values
+            case "$__UbuntuArch" in
+            amd64|arm64|armel|armhf|i386|mips64el|ppc64el|riscv64|s390x)
+                __KeyringFile="/usr/share/keyrings/debian-archive-keyring.gpg"
+
+                if [[ -z "$__UbuntuRepo" ]]; then
+                    __UbuntuRepo="http://ftp.debian.org/debian/"
+                fi
+                ;;
+            *)
+                __KeyringFile="/usr/share/keyrings/debian-ports-archive-keyring.gpg"
+
+                if [[ -z "$__UbuntuRepo" ]]; then
+                    __UbuntuRepo="http://ftp.ports.debian.org/debian-ports/"
+                fi
+                __UbuntuPackages="${__UbuntuPackages} debian-ports-archive-keyring"
+                ;;
+            esac
+
+            if [[ -e "$__KeyringFile" ]]; then
+                __Keyring="--keyring $__KeyringFile"
             fi
             ;;
         tizen)
@@ -766,7 +796,7 @@ elif [[ -n "$__CodeName" ]]; then
     cat > "$__RootfsDir/etc/apt/sources.list.d/$__CodeName.sources" <<EOF
 Types: deb
 URIs: $__UbuntuRepo
-Suites: $__CodeName $(echo $__UbuntuSuites | xargs -n 1 | xargs -I {} echo -n "$__CodeName-{} ")
+Suites: $__CodeName $__DebianRawSuites $(echo $__UbuntuSuites | xargs -n 1 | xargs -I {} echo -n "$__CodeName-{} ")
 Components: main universe
 Signed-By: $__KeyringFile
 EOF
