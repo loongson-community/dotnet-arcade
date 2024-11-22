@@ -184,6 +184,7 @@ while :; do
             ;;
         loongarch64)
             __BuildArch=loongarch64
+            __AlpineArch=loongarch64
             __QEMUArch=loongarch64
             __UbuntuArch=loong64
             __UbuntuSuites=
@@ -454,6 +455,9 @@ case "$__AlpineVersion" in
         elif [[ "$__AlpineArch" == "riscv64" ]]; then
             __AlpineLlvmLibsLookup=1
             __AlpineVersion=edge # minimum version with APKINDEX.tar.gz (packages archive)
+        elif [[ "$__AlpineArch" == "loongarch64" ]]; then
+            __AlpineLlvmLibsLookup=1
+            __AlpineVersion=edge # minimum version with support
         else
             __AlpineVersion=3.13 # 3.13 to maximize compatibility
             __AlpinePackages+=" llvm10-libs"
